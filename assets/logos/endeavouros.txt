@@ -1,0 +1,17 @@
+COLOR: 155;80;190
+                     ./o.
+                   ./sssso-
+                 ':osssssss+-
+               ':+sssssssssso/.
+             '-/ossssssssssssso/.
+           '-/+sssssssssssssssso+:'
+         '-:/+sssssssssssssssssso+/.
+       '.://osssssssssssssssssssso++-
+      .://osssssssssssssssssssssso++:
+     .://+ssssssssssssssssssssssso++:
+    .:///ossssssssssssssssssssssssso++:
+  ':////ssssssssssssssssssssssssssso+++.
+'-////+ssssssssssssssssssssssssssso++++-
+ '..-+oosssssssssssssssssssssssso+++++/'
+   ./++++++++++++++++++++++++++++++/:.
+  ':::::::::::::::::::::::::------''

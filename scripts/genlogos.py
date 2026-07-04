@@ -31,6 +31,18 @@ ORDER = [
     ("alpine", ["alpine"]),
     ("void", ["void"]),
     ("nixos", ["nixos"]),
+    ("gentoo", ["gentoo"]),
+    ("endeavouros", ["endeavouros", "endeavour"]),
+    ("kali", ["kali"]),
+    ("elementary", ["elementary"]),
+    ("zorin", ["zorin"]),
+    ("artix", ["artix"]),
+    ("rocky", ["rocky"]),
+    ("almalinux", ["almalinux", "alma"]),
+    ("centos", ["centos"]),
+    ("devuan", ["devuan"]),
+    ("mx", ["mx"]),
+    ("garuda", ["garuda"]),
     ("tux", ["tux", "linux", "generic"]),
 ]
 
