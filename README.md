@@ -136,6 +136,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). New distro logos, more package managers,
 extra info modules, and support for other CPU architectures are all welcome —
 please keep the zero-dependency rule and run `cargo fmt` before submitting.
 
+## Disclosure
+
+purefetch was built largely with **AI assistance** (Claude Code). The design was
+human-directed and every change was reviewed and tested — including running the
+tool on all four supported architectures under QEMU — but most of the code is
+AI-generated. Noting it openly so you know how it was made.
+
 ## License
 
 Licensed under either of
