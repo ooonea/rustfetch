@@ -10,9 +10,11 @@ fetcher written **entirely in Rust with zero external crates**.
 
 No `libc`, no `sysinfo`, no `nix`, no color crate — nothing from crates.io. The
 handful of syscalls that have no `std` wrapper (`statfs`, `ioctl` for the
-terminal size / tty check) are issued directly as raw Linux `x86_64` syscalls via
-`core::arch::asm!` in `src/sys.rs`. Everything else is `std` plus parsing of
-`/proc` and `/sys`. It builds offline and has a trivial dependency graph.
+terminal size / tty check) are issued directly as raw Linux syscalls (x86_64 and
+aarch64) via `core::arch::asm!` in `src/sys.rs`. Everything else is `std` plus
+parsing of `/proc` and `/sys`. It builds offline and has a trivial dependency graph.
+
+<p align="center"><img src="assets/rustfetch.svg" alt="rustfetch running on Debian" width="680"></p>
 
 ```
        _,met$$$$$gg.          ooonea@unicorn
@@ -38,7 +40,13 @@ terminal size / tty check) are issued directly as raw Linux `x86_64` syscalls vi
 
 ## Install
 
-From source (needs a Rust toolchain, 1.59+):
+With a Rust toolchain (1.59+), install straight from the repo — no clone needed:
+
+```sh
+cargo install --git https://github.com/ooonea/rustfetch
+```
+
+Or build from source:
 
 ```sh
 git clone https://github.com/ooonea/rustfetch
@@ -49,7 +57,7 @@ cargo build --release
 cargo install --path .
 ```
 
-Currently targets **Linux / x86_64**.
+Targets **Linux** on **x86_64** and **aarch64**.
 
 ## Usage
 
@@ -93,7 +101,7 @@ skipped.
 ```
 src/
   main.rs        arg parsing, module ordering, title/separators/color blocks, dispatch
-  sys.rs         raw x86_64 Linux syscalls: statfs, ioctl (winsize, tty)
+  sys.rs         raw Linux syscalls (x86_64, aarch64): statfs, ioctl (winsize, tty)
   util.rs        file helpers, subprocess helper, byte/percent formatting
   color.rs       ANSI palette
   logo.rs        distro ASCII logos + selection
@@ -105,7 +113,7 @@ src/
 
 Adding an info source is one file: implement
 `pub fn detect() -> crate::detect::Rows` in `src/detect/<name>.rs` and register
-it in `src/main.rs`.
+it in `src/main.rs`. New distro logos go in `src/logo.rs`.
 
 ## Contributing
 
