@@ -33,8 +33,8 @@ cargo clippy --all-targets -- -D warnings
    ```
 
    Keep it ≤ 40 columns wide and ~16–20 rows, and preserve leading spaces.
-2. Add `<id>` to the `ORDER` list in `scripts/genlogos.py` (with any aliases).
-3. Regenerate: `python3 scripts/genlogos.py` — it rewrites `src/logo.rs` and runs
+2. Add `<id>` to the `ORDER` list in `examples/genlogos.rs` (with any aliases).
+3. Regenerate: `cargo run --example genlogos` — it rewrites `src/logo.rs` and runs
    `rustfmt` on it. Don't edit `src/logo.rs` by hand.
 4. Check it: `cargo run -- --logo <id>`.
 

@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Rewrote the logo generator in Rust (`examples/genlogos.rs`) and dropped the
+  Python tooling, so the repository is 100% Rust again.
+
 ## [0.1.2] - 2026-07-04
 
 ### Fixed
