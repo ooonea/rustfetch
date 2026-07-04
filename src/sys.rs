@@ -2,10 +2,10 @@
 //!
 //! The whole point of rustfetch is to be written *entirely* in Rust, so instead
 //! of binding to C's `statvfs`/`ioctl` we issue the raw Linux syscalls directly
-//! on x86_64. Everything else in the crate uses `/proc`, `/sys` and std.
+//! on x86_64 and aarch64. Everything else in the crate uses `/proc`, `/sys`, std.
 //!
-//! On non-x86_64 targets these fall back to conservative defaults so the crate
-//! still builds; the project currently only targets Linux/x86_64.
+//! On other architectures these fall back to conservative defaults so the crate
+//! still builds.
 #![allow(dead_code)]
 
 #[cfg(target_arch = "x86_64")]
@@ -25,13 +25,43 @@ unsafe fn syscall3(n: usize, a1: usize, a2: usize, a3: usize) -> isize {
     ret
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
+#[inline]
+unsafe fn syscall3(n: usize, a1: usize, a2: usize, a3: usize) -> isize {
+    let ret: isize;
+    // aarch64 Linux ABI: nr in x8, args in x0..x2, return in x0; the kernel
+    // preserves all other registers, so no extra clobbers are needed.
+    core::arch::asm!(
+        "svc #0",
+        in("x8") n,
+        inlateout("x0") a1 => ret,
+        in("x1") a2,
+        in("x2") a3,
+        options(nostack),
+    );
+    ret
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 unsafe fn syscall3(_n: usize, _a1: usize, _a2: usize, _a3: usize) -> isize {
     -1
 }
 
+// Syscall numbers are per-architecture. The ioctl request codes
+// (TIOCGWINSZ/TCGETS) are the asm-generic values shared by x86_64 and aarch64.
+#[cfg(target_arch = "x86_64")]
 const SYS_IOCTL: usize = 16;
+#[cfg(target_arch = "x86_64")]
 const SYS_STATFS: usize = 137;
+#[cfg(target_arch = "aarch64")]
+const SYS_IOCTL: usize = 29;
+#[cfg(target_arch = "aarch64")]
+const SYS_STATFS: usize = 43;
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+const SYS_IOCTL: usize = 0;
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+const SYS_STATFS: usize = 0;
+
 const TIOCGWINSZ: usize = 0x5413;
 const TCGETS: usize = 0x5401;
 
