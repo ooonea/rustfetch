@@ -65,6 +65,15 @@ cargo build --release
 cargo install --path .
 ```
 
+### With Nix
+
+```sh
+nix run github:ooonea/purefetch
+```
+
+Or add the flake as an input and use `purefetch.packages.${system}.default`
+(built for `x86_64-linux` and `aarch64-linux`; there is also an `overlays.default`).
+
 Targets **Linux** on **x86_64**, **aarch64**, **riscv64**, and **loongarch64**.
 
 ## Usage
