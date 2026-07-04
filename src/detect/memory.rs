@@ -1,8 +1,8 @@
-//! Memory: used / total (percent), e.g. "14.98 GiB / 62.61 GiB (24%)".
-//! Used = MemTotal - MemAvailable, minus the reclaimable ZFS ARC. The ARC is
-//! kernel-slab cache that MemAvailable does not count as available, so without
-//! this correction a ZFS-on-root box massively over-reports used memory. This
-//! matches fastfetch/htop-with-ZFS.
+//! Memory: used / total (percent), e.g. "37.69 GiB / 62.61 GiB (60%)".
+//! Used = MemTotal - MemAvailable, matching `free` and htop. On ZFS the ARC
+//! counts as used because MemAvailable does not treat it as reclaimable — which
+//! is honest: that RAM is genuinely occupied by the cache until the kernel
+//! reclaims it under pressure.
 use crate::detect::{Row, Rows};
 use crate::util::{human_iec, percent};
 
@@ -23,36 +23,13 @@ pub fn detect() -> Rows {
         return Vec::new();
     }
 
-    let mut used = total.saturating_sub(available);
-    if let Some(reclaimable) = zfs_arc_reclaimable() {
-        used = used.saturating_sub(reclaimable);
-    }
-
+    let used = total.saturating_sub(available);
     vec![Row::val(format!(
         "{} / {} ({}%)",
         human_iec(used),
         human_iec(total),
         percent(used, total)
     ))]
-}
-
-/// Reclaimable ZFS ARC bytes: the ARC `size` above its `c_min` floor (the ARC
-/// cannot shrink below `c_min`). `None` when there is no ZFS ARC or it is
-/// already at/below the floor.
-fn zfs_arc_reclaimable() -> Option<u64> {
-    let stats = std::fs::read_to_string("/proc/spl/kstat/zfs/arcstats").ok()?;
-    let mut size = 0u64;
-    let mut c_min = 0u64;
-    for line in stats.lines() {
-        // Each line is: "<name> <type> <data>"; we want <data>.
-        let mut fields = line.split_whitespace();
-        match fields.next() {
-            Some("size") => size = fields.nth(1).and_then(|d| d.parse().ok()).unwrap_or(0),
-            Some("c_min") => c_min = fields.nth(1).and_then(|d| d.parse().ok()).unwrap_or(0),
-            _ => {}
-        }
-    }
-    (size > c_min).then_some(size - c_min)
 }
 
 fn parse_kb(s: &str) -> u64 {

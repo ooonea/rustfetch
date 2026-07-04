@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-07-04
+
+### Fixed
+- Memory: report `MemTotal - MemAvailable` (matching `free`/htop). The previous
+  ZFS-ARC subtraction under-reported used memory — the ARC genuinely occupies RAM.
+- Disk on a ZFS root: report the whole pool via `zpool list` (labelled
+  `Disk (<pool>)`) instead of only the root dataset's few GiB.
+
+### Changed
+- Logos: `nixos` and `manjaro` are now pure ASCII (were solid block-glyph art).
+  All 24 bundled logos are strictly 7-bit ASCII.
+
 ## [0.1.7] - 2026-07-04
 
 ### Added
@@ -73,7 +85,8 @@ Initial release.
 - CLI: `--logo`, `--no-logo`, `--no-color`, `--version`, `--help`.
 - Dual-licensed MIT OR Apache-2.0.
 
-[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/ooonea/purefetch/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/ooonea/purefetch/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/ooonea/purefetch/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ooonea/purefetch/compare/v0.1.4...v0.1.5

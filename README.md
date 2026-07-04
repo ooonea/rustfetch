@@ -133,10 +133,10 @@ skipped.
 ## Notable details
 
 - **Zero dependencies.** The whole tool is `std` + raw syscalls (`src/sys.rs`).
-- **ZFS-aware memory.** On ZFS-on-root, the ARC is kernel-slab cache that
-  `MemAvailable` does not count as free, so a naive `total - available` grossly
-  over-reports used RAM. `purefetch` subtracts the reclaimable ARC
-  (`arcstats size - c_min`), matching fastfetch and htop-with-ZFS.
+- **ZFS-aware.** `Memory` is `MemTotal - MemAvailable` (matching `free`/htop) — the
+  ARC counts as used because it genuinely occupies RAM. On a ZFS root, `Disk` reports
+  the whole pool via `zpool list` (labelled `Disk (<pool>)`), not just the root
+  dataset's few GiB.
 - **Process-parent detection.** `Shell` and `Terminal` walk the `/proc/<pid>`
   parent chain (parsing `ppid` after the last `)` in `stat`, reading the clean
   name from `comm`), with environment-variable fallbacks (`$TERM`,
