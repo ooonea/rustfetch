@@ -36,6 +36,20 @@ pub fn cmd(prog: &str, args: &[&str]) -> Option<String> {
     }
 }
 
+/// Run a shell command line via `sh -c` and return its first non-empty output
+/// line. Powers the `--exec` custom modules.
+pub fn sh(command: &str) -> Option<String> {
+    let out = Command::new("sh").arg("-c").arg(command).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(str::to_string)
+}
+
 /// Format a byte count with IEC units, e.g. `62.61 GiB`.
 pub fn human_iec(bytes: u64) -> String {
     const UNITS: [&str; 6] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];

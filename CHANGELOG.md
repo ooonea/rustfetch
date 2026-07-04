@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-04
+
+### Added
+- `--exec <LABEL:command>`: add a custom info line from a shell command, placed in
+  `--modules` by its (lowercased) label. Repeatable.
+
 ## [0.1.5] - 2026-07-04
 
 ### Added
@@ -58,7 +64,8 @@ Initial release.
 - CLI: `--logo`, `--no-logo`, `--no-color`, `--version`, `--help`.
 - Dual-licensed MIT OR Apache-2.0.
 
-[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/ooonea/purefetch/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ooonea/purefetch/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ooonea/purefetch/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ooonea/purefetch/compare/v0.1.2...v0.1.3

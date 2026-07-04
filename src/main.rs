@@ -14,10 +14,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 type Det = fn() -> detect::Rows;
 
+/// One info line source: a built-in detector, or a custom `--exec` command.
+enum Mod {
+    Builtin(&'static str, Det),
+    Exec(String, String), // (label, shell command)
+}
+
 fn main() {
     let mut logo_sel = String::from("auto");
     let mut logo_file: Option<String> = None;
     let mut modules_arg: Option<String> = None;
+    let mut execs: Vec<(String, String)> = Vec::new();
     let mut no_color = false;
     let mut no_color_blocks = false;
 
@@ -40,30 +47,33 @@ fn main() {
                 i += 1;
                 match args.get(i) {
                     Some(v) => logo_sel = v.clone(),
-                    None => {
-                        eprintln!("{NAME}: --logo requires a value");
-                        std::process::exit(2);
-                    }
+                    None => fail("--logo requires a value"),
                 }
             }
             "--logo-file" => {
                 i += 1;
                 match args.get(i) {
                     Some(v) => logo_file = Some(v.clone()),
-                    None => {
-                        eprintln!("{NAME}: --logo-file requires a path");
-                        std::process::exit(2);
-                    }
+                    None => fail("--logo-file requires a path"),
                 }
             }
             "--modules" => {
                 i += 1;
                 match args.get(i) {
                     Some(v) => modules_arg = Some(v.clone()),
-                    None => {
-                        eprintln!("{NAME}: --modules requires a value");
-                        std::process::exit(2);
-                    }
+                    None => fail("--modules requires a value"),
+                }
+            }
+            "--exec" => {
+                i += 1;
+                match args.get(i) {
+                    Some(v) => match v.split_once(':') {
+                        Some((label, cmd)) => {
+                            execs.push((label.trim().to_string(), cmd.to_string()))
+                        }
+                        None => fail("--exec expects \"Label:command\""),
+                    },
+                    None => fail("--exec requires a value"),
                 }
             }
             other => {
@@ -79,8 +89,8 @@ fn main() {
     let pal = color::Palette::new(color_enabled);
     let term_width = if tty { sys::term_width() } else { 0 };
 
-    // Logo: an explicit --logo-file (rendered verbatim, ANSI and all) wins;
-    // otherwise the built-in / auto-detected distro logo.
+    // Logo: an explicit --logo-file (rendered verbatim) wins; otherwise the
+    // built-in / auto-detected distro logo.
     let logo_lines: Vec<String> = if let Some(path) = &logo_file {
         let raw = std::fs::read_to_string(path).unwrap_or_default();
         raw.lines()
@@ -113,7 +123,7 @@ fn main() {
 
     // Info modules: the caller-selected set (--modules) or the default layout.
     let groups = match &modules_arg {
-        Some(list) => parse_modules(list),
+        Some(list) => parse_modules(list, &execs),
         None => default_groups(),
     };
 
@@ -121,10 +131,19 @@ fn main() {
 
     for group in &groups {
         let mut produced: Vec<Line> = Vec::new();
-        for &(label, det) in group {
-            for row in det() {
-                let key = row.key.unwrap_or_else(|| label.to_string());
-                produced.push(Line::Kv(key, row.value));
+        for m in group {
+            match m {
+                Mod::Builtin(label, det) => {
+                    for row in (*det)() {
+                        let key = row.key.unwrap_or_else(|| (*label).to_string());
+                        produced.push(Line::Kv(key, row.value));
+                    }
+                }
+                Mod::Exec(label, cmd) => {
+                    if let Some(val) = util::sh(cmd) {
+                        produced.push(Line::Kv(label.clone(), val));
+                    }
+                }
             }
         }
         if !produced.is_empty() {
@@ -142,10 +161,20 @@ fn main() {
     render::render(&logo_lines, &lines, &pal, term_width);
 }
 
+fn fail(msg: &str) -> ! {
+    eprintln!("{NAME}: {msg}");
+    std::process::exit(2);
+}
+
 /// The default module layout, grouped by blank separators.
-fn default_groups() -> Vec<Vec<(&'static str, Det)>> {
+fn default_groups() -> Vec<Vec<Mod>> {
+    let g = |v: &[(&'static str, Det)]| {
+        v.iter()
+            .map(|&(l, d)| Mod::Builtin(l, d))
+            .collect::<Vec<_>>()
+    };
     vec![
-        vec![
+        g(&[
             ("OS", detect::os::detect as Det),
             ("Host", detect::host::detect),
             ("Kernel", detect::kernel::detect),
@@ -156,27 +185,26 @@ fn default_groups() -> Vec<Vec<(&'static str, Det)>> {
             ("DE", detect::de::detect),
             ("WM", detect::wm::detect),
             ("Terminal", detect::terminal::detect),
-        ],
-        vec![
+        ]),
+        g(&[
             ("CPU", detect::cpu::detect as Det),
             ("GPU", detect::gpu::detect),
             ("Memory", detect::memory::detect),
             ("Swap", detect::swap::detect),
             ("Disk (/)", detect::disk::detect),
-        ],
-        vec![
+        ]),
+        g(&[
             ("Locale", detect::locale::detect as Det),
             ("Battery", detect::battery::detect),
-        ],
+        ]),
     ]
 }
 
-/// Parse a `--modules` list into groups. Items are module names; a `-` (or
-/// `sep`) starts a new group (rendered as a separator). Unknown names are
-/// ignored.
-fn parse_modules(list: &str) -> Vec<Vec<(&'static str, Det)>> {
-    let mut groups: Vec<Vec<(&'static str, Det)>> = Vec::new();
-    let mut cur: Vec<(&'static str, Det)> = Vec::new();
+/// Parse a `--modules` list into groups. Items are built-in module names or the
+/// (lowercased) label of an `--exec` module; `-` (or `sep`) starts a new group.
+fn parse_modules(list: &str, execs: &[(String, String)]) -> Vec<Vec<Mod>> {
+    let mut groups: Vec<Vec<Mod>> = Vec::new();
+    let mut cur: Vec<Mod> = Vec::new();
     for item in list.split(',') {
         let it = item.trim();
         if it.is_empty() {
@@ -186,8 +214,10 @@ fn parse_modules(list: &str) -> Vec<Vec<(&'static str, Det)>> {
             if !cur.is_empty() {
                 groups.push(std::mem::take(&mut cur));
             }
-        } else if let Some(m) = module_by_name(it) {
-            cur.push(m);
+        } else if let Some((label, det)) = builtin_by_name(it) {
+            cur.push(Mod::Builtin(label, det));
+        } else if let Some((label, cmd)) = execs.iter().find(|(l, _)| l.eq_ignore_ascii_case(it)) {
+            cur.push(Mod::Exec(label.clone(), cmd.clone()));
         }
     }
     if !cur.is_empty() {
@@ -196,8 +226,8 @@ fn parse_modules(list: &str) -> Vec<Vec<(&'static str, Det)>> {
     groups
 }
 
-/// Map a module name (case-insensitive) to its (default label, detector).
-fn module_by_name(name: &str) -> Option<(&'static str, Det)> {
+/// Map a built-in module name (case-insensitive) to its (default label, detector).
+fn builtin_by_name(name: &str) -> Option<(&'static str, Det)> {
     Some(match name.to_ascii_lowercase().as_str() {
         "os" => ("OS", detect::os::detect as Det),
         "host" => ("Host", detect::host::detect),
@@ -242,6 +272,8 @@ fn print_help() {
     println!("        --logo-file <PATH>  use a custom logo, read verbatim from a file");
     println!("        --modules <LIST>    comma-separated modules to show ('-' = separator),");
     println!("                            e.g. os,host,kernel,-,cpu,gpu,memory,swap,-,shell");
+    println!("        --exec <LABEL:CMD>  add a custom line running a shell command; refer to");
+    println!("                            it in --modules by <label> (lowercased). Repeatable.");
     println!("        --no-logo           do not print any logo");
     println!("        --no-color          disable ANSI colors");
     println!("        --no-color-blocks   hide the trailing ANSI color blocks");
