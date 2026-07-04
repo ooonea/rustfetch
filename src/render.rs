@@ -29,6 +29,24 @@ pub fn visible_width(s: &str) -> usize {
     w
 }
 
+/// Return `s` with ANSI CSI (SGR) escape sequences removed.
+pub fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut it = s.chars();
+    while let Some(c) = it.next() {
+        if c == '\x1b' {
+            for n in it.by_ref() {
+                if n.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Render the whole output to stdout.
 ///
 /// `term_width` of 0 disables value truncation (e.g. when piping).

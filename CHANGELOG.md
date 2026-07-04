@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-04
+
+### Added
+- `--logo-file <PATH>`: use a custom logo read verbatim from a file (ANSI and
+  all), for fastfetch-style custom logos.
+- `--no-color-blocks`: hide the trailing ANSI color blocks.
+
 ## [0.1.3] - 2026-07-04
 
 ### Changed
@@ -45,7 +52,8 @@ Initial release.
 - CLI: `--logo`, `--no-logo`, `--no-color`, `--version`, `--help`.
 - Dual-licensed MIT OR Apache-2.0.
 
-[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/ooonea/purefetch/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ooonea/purefetch/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/ooonea/purefetch/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ooonea/purefetch/compare/v0.1.0...v0.1.1

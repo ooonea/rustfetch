@@ -72,11 +72,13 @@ Targets **Linux** on **x86_64**, **aarch64**, **riscv64**, and **loongarch64**.
 ```
 purefetch [OPTIONS]
 
--l, --logo <NAME>   logo to display: auto (default), or a distro name (see below)
-    --no-logo       do not print any logo
-    --no-color      disable ANSI colors
--V, --version       print version and exit
--h, --help          print this help and exit
+-l, --logo <NAME>       logo: auto (default), or a distro name (see below)
+    --logo-file <PATH>  use a custom logo, read verbatim from a file
+    --no-logo           do not print any logo
+    --no-color          disable ANSI colors
+    --no-color-blocks   hide the trailing ANSI color blocks
+-V, --version           print version and exit
+-h, --help              print this help and exit
 ```
 
 Colors are disabled automatically when stdout is not a terminal (or when

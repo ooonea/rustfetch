@@ -14,7 +14,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let mut logo_sel = String::from("auto");
+    let mut logo_file: Option<String> = None;
     let mut no_color = false;
+    let mut no_color_blocks = false;
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
@@ -29,6 +31,7 @@ fn main() {
                 return;
             }
             "--no-color" | "--no-colour" => no_color = true,
+            "--no-color-blocks" => no_color_blocks = true,
             "--no-logo" => logo_sel = "none".into(),
             "-l" | "--logo" => {
                 i += 1;
@@ -36,6 +39,16 @@ fn main() {
                     Some(v) => logo_sel = v.clone(),
                     None => {
                         eprintln!("{NAME}: --logo requires a value");
+                        std::process::exit(2);
+                    }
+                }
+            }
+            "--logo-file" => {
+                i += 1;
+                match args.get(i) {
+                    Some(v) => logo_file = Some(v.clone()),
+                    None => {
+                        eprintln!("{NAME}: --logo-file requires a path");
                         std::process::exit(2);
                     }
                 }
@@ -53,10 +66,24 @@ fn main() {
     let pal = color::Palette::new(color_enabled);
     let term_width = if tty { sys::term_width() } else { 0 };
 
-    // Logo (already colored).
-    let logo_lines: Vec<String> = match logo::get(&logo_sel) {
-        Some(l) => l.lines.iter().map(|ln| pal.paint(l.sgr, ln)).collect(),
-        None => Vec::new(),
+    // Logo: an explicit --logo-file (rendered verbatim, ANSI and all) wins;
+    // otherwise the built-in / auto-detected distro logo.
+    let logo_lines: Vec<String> = if let Some(path) = &logo_file {
+        let raw = std::fs::read_to_string(path).unwrap_or_default();
+        raw.lines()
+            .map(|ln| {
+                if color_enabled {
+                    ln.to_string()
+                } else {
+                    render::strip_ansi(ln)
+                }
+            })
+            .collect()
+    } else {
+        match logo::get(&logo_sel) {
+            Some(l) => l.lines.iter().map(|ln| pal.paint(l.sgr, ln)).collect(),
+            None => Vec::new(),
+        }
     };
 
     // Title: user@host.
@@ -115,7 +142,7 @@ fn main() {
         }
     }
 
-    if color_enabled {
+    if color_enabled && !no_color_blocks {
         lines.push(sep_line());
         lines.push(Line::Raw(color_blocks(false)));
         lines.push(Line::Raw(color_blocks(true)));
@@ -142,9 +169,11 @@ fn print_help() {
     println!("    {NAME} [OPTIONS]");
     println!();
     println!("OPTIONS:");
-    println!("    -l, --logo <NAME>   logo: auto (default), a distro name, tux, or none");
-    println!("        --no-logo       do not print any logo");
-    println!("        --no-color      disable ANSI colors");
-    println!("    -V, --version       print version and exit");
-    println!("    -h, --help          print this help and exit");
+    println!("    -l, --logo <NAME>       logo: auto (default), a distro name, tux, or none");
+    println!("        --logo-file <PATH>  use a custom logo, read verbatim from a file");
+    println!("        --no-logo           do not print any logo");
+    println!("        --no-color          disable ANSI colors");
+    println!("        --no-color-blocks   hide the trailing ANSI color blocks");
+    println!("    -V, --version           print version and exit");
+    println!("    -h, --help              print this help and exit");
 }
