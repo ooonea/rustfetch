@@ -1,6 +1,6 @@
 //! Terminal: terminal emulator (+ version if cheap), e.g. "kitty 0.41.1".
 //! Primary source: walk the parent-process chain and pick the first ancestor
-//! that is a known terminal (shells and rustfetch itself are simply skipped).
+//! that is a known terminal (shells and purefetch itself are simply skipped).
 //! Fallback: environment hints ($TERM, $KITTY_WINDOW_ID, $TERM_PROGRAM, ...),
 //! needed when we run under `bash -c`/`script` and the chain has no terminal.
 use crate::detect::{Row, Rows};

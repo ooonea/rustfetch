@@ -1,4 +1,4 @@
-//! rustfetch — system information, written entirely in Rust (zero deps).
+//! purefetch — system information, written entirely in Rust (zero deps).
 
 mod color;
 mod detect;
@@ -143,7 +143,7 @@ fn print_help() {
     println!("    {NAME} [OPTIONS]");
     println!();
     println!("OPTIONS:");
-    println!("    -l, --logo <NAME>   logo to display: auto (default), debian, tux, none");
+    println!("    -l, --logo <NAME>   logo: auto (default), a distro name, tux, or none");
     println!("        --no-logo       do not print any logo");
     println!("        --no-color      disable ANSI colors");
     println!("    -V, --version       print version and exit");

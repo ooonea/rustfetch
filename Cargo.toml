@@ -1,19 +1,19 @@
 [package]
-name = "rustfetch"
+name = "purefetch"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.59"
 authors = ["ooonea"]
 description = "A fast, fastfetch-style system information tool written entirely in Rust with zero dependencies"
-repository = "https://github.com/ooonea/rustfetch"
-homepage = "https://github.com/ooonea/rustfetch"
+repository = "https://github.com/ooonea/purefetch"
+homepage = "https://github.com/ooonea/purefetch"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["fetch", "fastfetch", "neofetch", "system-info", "cli"]
 categories = ["command-line-utilities"]
 
 [[bin]]
-name = "rustfetch"
+name = "purefetch"
 path = "src/main.rs"
 
 # No [dependencies]: the whole tool is std + raw Linux syscalls (see src/sys.rs).

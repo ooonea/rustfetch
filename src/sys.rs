@@ -1,6 +1,6 @@
 //! Minimal syscall shims — no libc, no external crates.
 //!
-//! The whole point of rustfetch is to be written *entirely* in Rust, so instead
+//! The whole point of purefetch is to be written *entirely* in Rust, so instead
 //! of binding to C's `statvfs`/`ioctl` we issue the raw Linux syscalls directly
 //! on x86_64 and aarch64. Everything else in the crate uses `/proc`, `/sys`, std.
 //!

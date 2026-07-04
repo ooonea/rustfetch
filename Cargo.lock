@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "rustfetch"
+name = "purefetch"
 version = "0.1.0"
