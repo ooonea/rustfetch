@@ -160,10 +160,19 @@ pub fn disk_usage(path: &str) -> Option<DiskUsage> {
             0,
         )
     };
-    if r < 0 || sb.f_bsize <= 0 {
+    if r < 0 {
         return None;
     }
-    let bs = sb.f_bsize as u64;
+    // f_blocks/f_bfree/f_bavail are counted in fragment-size units (f_frsize),
+    // which is what df/statvfs use; f_bsize is only the preferred I/O size.
+    // They are equal on most filesystems but differ e.g. on NFS.
+    let bs = if sb.f_frsize > 0 {
+        sb.f_frsize as u64
+    } else if sb.f_bsize > 0 {
+        sb.f_bsize as u64
+    } else {
+        return None;
+    };
     let total = sb.f_blocks.saturating_mul(bs);
     if total == 0 {
         return None;

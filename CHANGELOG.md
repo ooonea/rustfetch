@@ -6,6 +6,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-05
+
+### Fixed
+- Debian and Devuan logos rendered every literal `$` doubled (a visibly fatter
+  swirl than fastfetch's): the art files are taken verbatim from fastfetch,
+  whose format escapes a literal `$` as `$$`, but the renderer printed both
+  characters. `$$` now renders as one `$` — and `$0` stays literal with and
+  without color — so upstream art files render identically to fastfetch.
+- OS on Debian derivatives (Ubuntu, Mint, Pop!\_OS, ...): `/etc/debian_version`
+  was preferred unconditionally, so the OS line showed the Debian *base*
+  codename instead of the distro version (e.g. "Ubuntu trixie/sid (noble)"
+  instead of "Ubuntu 24.04 (noble)"). The file is now used only when
+  os-release says `ID=debian`.
+- Disk on filesystems whose fragment size differs from the preferred I/O size
+  (e.g. NFS): block counts are now multiplied by `f_frsize`, as `df` does,
+  falling back to `f_bsize` only when a filesystem leaves `f_frsize` at 0.
+- GPU on hybrid systems: with the NVIDIA proc interface present, other
+  adapters (e.g. the Intel iGPU) were hidden; they are now appended via
+  `lspci`. Single-GPU NVIDIA systems still spawn no subprocess (the second
+  vendor is detected from `/sys/class/drm` first).
+- `--logo-file` with an unreadable path and `--logo-exec` with a failing
+  command now print a warning on stderr instead of silently dropping the logo.
+- Uptime under one minute shows seconds instead of "0 mins".
+- A flag value that literally reads `--config`/`--no-config` (e.g. a strange
+  `--logo-file` name) is no longer misread by the config-file pre-scan.
+
+### Changed
+- MSRV 1.70 is now verified for real: a dedicated CI job builds and tests on
+  Rust 1.70, and `Cargo.lock` is kept in the v3 format so pre-1.78 cargo can
+  parse it (the v4 lockfile broke `git clone` + `cargo build` on 1.70–1.77).
+- Leaner crates.io package: `assets/cover.png`, `.github/` and the Nix flake
+  files are excluded from the published `.crate`.
+- Documented: the verbatim fastfetch import in 0.1.10 reintroduced non-ASCII
+  art in four logos (manjaro/nixos block glyphs, garuda `°`, mint `´`),
+  superseding 0.1.8's "all logos are 7-bit ASCII" — deliberate, art now tracks
+  fastfetch byte-for-byte.
+
 ## [0.1.10] - 2026-07-05
 
 ### Added
@@ -120,7 +157,8 @@ Initial release.
 - CLI: `--logo`, `--no-logo`, `--no-color`, `--version`, `--help`.
 - Dual-licensed MIT OR Apache-2.0.
 
-[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/ooonea/purefetch/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/ooonea/purefetch/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/ooonea/purefetch/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/ooonea/purefetch/compare/v0.1.7...v0.1.8

@@ -44,6 +44,9 @@ fn main() {
                     explicit_config = cli.get(j).cloned();
                 }
                 "--no-config" => no_config = true,
+                // Skip the values of the other value-taking flags, so a value
+                // that literally reads "--config"/"--no-config" is not misread.
+                "-l" | "--logo" | "--logo-file" | "--logo-exec" | "--modules" | "--exec" => j += 1,
                 _ => {}
             }
             j += 1;
@@ -143,13 +146,20 @@ fn main() {
     // Logo source: whichever logo flag was seen last (--no-logo, --logo,
     // --logo-file, --logo-exec). A CLI flag overrides one from the config file.
     let logo_lines: Vec<String> = match &logo_src {
-        LogoSource::File(path) => verbatim_logo(
-            &std::fs::read_to_string(path).unwrap_or_default(),
-            color_enabled,
-        ),
-        LogoSource::Exec(cmd) => {
-            verbatim_logo(&util::sh_raw(cmd).unwrap_or_default(), color_enabled)
-        }
+        LogoSource::File(path) => match std::fs::read_to_string(path) {
+            Ok(text) => verbatim_logo(&text, color_enabled),
+            Err(e) => {
+                eprintln!("{NAME}: cannot read logo file '{path}': {e}");
+                Vec::new()
+            }
+        },
+        LogoSource::Exec(cmd) => match util::sh_raw(cmd) {
+            Some(text) => verbatim_logo(&text, color_enabled),
+            None => {
+                eprintln!("{NAME}: logo command failed: {cmd}");
+                Vec::new()
+            }
+        },
         LogoSource::Builtin(sel) => match logo::get(sel) {
             Some(l) => l
                 .lines
@@ -239,23 +249,15 @@ fn verbatim_logo(raw: &str, color_enabled: bool) -> Vec<String> {
 }
 
 /// Colorize one built-in logo line. The art selects colors with `$1`..`$9`
-/// markers (any text before the first marker uses the first color); a literal `$`
-/// is any `$` not followed by a digit. With color disabled, the markers are
-/// simply removed.
+/// markers (any text before the first marker uses the first color); `$$` is a
+/// literal `$` — the fastfetch escape, so upstream art files render verbatim —
+/// and any other `$` not followed by a digit 1-9 is also literal. With color
+/// disabled, the markers are simply removed.
 fn paint_logo_line(line: &str, colors: &[&str], color_enabled: bool) -> String {
-    if !color_enabled {
-        let mut out = String::with_capacity(line.len());
-        let mut chars = line.chars().peekable();
-        while let Some(c) = chars.next() {
-            if c == '$' && chars.peek().is_some_and(|d| d.is_ascii_digit()) {
-                chars.next(); // drop the digit: `$N` is a color marker
-                continue;
-            }
-            out.push(c);
-        }
-        return out;
-    }
     let sgr = |i: usize| {
+        if !color_enabled {
+            return String::new();
+        }
         colors
             .get(i)
             .map(|c| format!("\x1b[{c}m"))
@@ -266,18 +268,30 @@ fn paint_logo_line(line: &str, colors: &[&str], color_enabled: bool) -> String {
     let mut chars = line.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '$' {
-            let digit = chars.peek().and_then(|d| d.to_digit(10));
-            if let Some(d) = digit {
-                if d >= 1 {
+            match chars.peek() {
+                Some('$') => {
                     chars.next();
-                    out.push_str(&sgr((d - 1) as usize));
+                    out.push('$');
                     continue;
                 }
+                Some(d) => {
+                    // `$1`..`$9` select a color; `$0` stays literal.
+                    if let Some(n) = d.to_digit(10) {
+                        if n >= 1 {
+                            chars.next();
+                            out.push_str(&sgr((n - 1) as usize));
+                            continue;
+                        }
+                    }
+                }
+                None => {}
             }
         }
         out.push(c);
     }
-    out.push_str("\x1b[0m");
+    if color_enabled {
+        out.push_str("\x1b[0m");
+    }
     out
 }
 
@@ -465,7 +479,29 @@ fn print_help() {
 
 #[cfg(test)]
 mod tests {
-    use super::config_to_args;
+    use super::{config_to_args, paint_logo_line};
+
+    #[test]
+    fn logo_dollar_escape_and_markers() {
+        // "$$" is one literal '$' (fastfetch art is used verbatim).
+        assert_eq!(
+            paint_logo_line("_,met$$$$$$$$$$gg.", &[], false),
+            "_,met$$$$$gg."
+        );
+        // "$1".."$9" switch colors; "$0" and "$<non-digit>" stay literal.
+        assert_eq!(
+            paint_logo_line("a$2b$0c$xd", &["31", "37"], false),
+            "ab$0c$xd"
+        );
+        assert_eq!(
+            paint_logo_line("a$2b", &["31", "37"], true),
+            "\x1b[31ma\x1b[37mb\x1b[0m"
+        );
+        // "$$1" is a literal "$1", not a color marker.
+        assert_eq!(paint_logo_line("$$1", &["31"], false), "$1");
+        // A trailing '$' is literal.
+        assert_eq!(paint_logo_line("end$", &["31"], false), "end$");
+    }
 
     #[test]
     fn config_lines_become_pseudo_args() {

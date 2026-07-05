@@ -10,7 +10,8 @@ Thanks for your interest! purefetch aims to stay small, fast, and
 - **No panics, no blocking.** Detection modules read `/proc` and `/sys` and must
   return an empty `Vec` when data is missing rather than `unwrap()`-ing or
   spawning long-running work.
-- **MSRV is 1.70** — don't use newer `std` APIs (CI checks this via clippy).
+- **MSRV is 1.70** — don't use newer `std` APIs (a dedicated CI job builds and
+  tests on 1.70; `Cargo.lock` stays in the v3 format so pre-1.78 cargo can read it).
 - Run `cargo fmt` and `cargo clippy` before submitting; CI enforces both.
 
 ## Building & checking
@@ -28,11 +29,15 @@ cargo clippy --all-targets -- -D warnings
    `ID` (so auto-detection works). Format:
 
    ```
-   COLOR: R;G;B
+   COLORS: <sgr> <sgr> ...
    <ascii art, one row per line>
    ```
 
-   Keep it ≤ 40 columns wide and ~16–20 rows, and preserve leading spaces.
+   The `COLORS:` line lists SGR parameter strings (e.g. `31 37`), one per color;
+   in the art `$1`..`$9` switch to the Nth color, `$$` is a literal `$` (the
+   fastfetch escape — fastfetch art files work verbatim), and any other `$` not
+   followed by a digit 1-9 is also literal. Keep it ≤ 40 columns wide and
+   ~16–20 rows, and preserve leading spaces.
 2. Add `<id>` to the `ORDER` list in `examples/genlogos.rs` (with any aliases).
 3. Regenerate: `cargo run --example genlogos` — it rewrites `src/logo.rs` and runs
    `rustfmt` on it. Don't edit `src/logo.rs` by hand.

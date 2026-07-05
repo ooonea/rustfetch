@@ -1,14 +1,42 @@
 //! GPU: graphics adapter model, e.g. "Quadro RTX 3000".
 //! Primary source: /proc/driver/nvidia/gpus/*/information ("Model:" line).
-//! Fallback: lspci, for non-NVIDIA adapters or when the nvidia proc is absent.
+//! lspci covers non-NVIDIA adapters: as the sole source when the nvidia proc
+//! is absent, and additionally for the other card on hybrid (iGPU + NVIDIA)
+//! systems — detected first via /sys so the common single-GPU run stays
+//! subprocess-free.
 use crate::detect::{Row, Rows};
 
 pub fn detect() -> Rows {
     let mut rows = nvidia_gpus();
     if rows.is_empty() {
-        rows = lspci_gpus();
+        return lspci_gpus(false);
+    }
+    if has_non_nvidia_card() {
+        rows.extend(lspci_gpus(true));
     }
     rows
+}
+
+/// Whether /sys/class/drm has a card from a non-NVIDIA vendor (PCI vendor id
+/// != 0x10de), i.e. an adapter the NVIDIA proc interface cannot report.
+fn has_non_nvidia_card() -> bool {
+    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(n) = name.to_str() else { continue };
+        // Whole-card nodes only ("card0", ...), not per-connector ones.
+        if !n.starts_with("card") || n.contains('-') {
+            continue;
+        }
+        if let Some(v) = crate::util::read_trim(&format!("/sys/class/drm/{n}/device/vendor")) {
+            if !v.eq_ignore_ascii_case("0x10de") {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// One Row per NVIDIA GPU, parsed from the driver's proc information file.
@@ -39,8 +67,9 @@ fn nvidia_gpus() -> Rows {
     rows
 }
 
-/// Fallback: parse `lspci` for any graphics controller.
-fn lspci_gpus() -> Rows {
+/// Parse `lspci` for graphics controllers; with `skip_nvidia`, NVIDIA cards
+/// are left out (already reported from the driver's proc interface).
+fn lspci_gpus(skip_nvidia: bool) -> Rows {
     let Some(out) = crate::util::cmd("lspci", &[]) else {
         return Vec::new();
     };
@@ -56,6 +85,9 @@ fn lspci_gpus() -> Rows {
         let Some((_, desc)) = line.rsplit_once(": ") else {
             continue;
         };
+        if skip_nvidia && desc.contains("NVIDIA") {
+            continue;
+        }
         let name = clean_lspci(desc.trim());
         if !name.is_empty() {
             rows.push(Row::val(name));

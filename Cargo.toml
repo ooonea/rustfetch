@@ -1,6 +1,6 @@
 [package]
 name = "purefetch"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 rust-version = "1.70"
 authors = ["ooonea"]
@@ -11,6 +11,9 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["fetch", "fastfetch", "neofetch", "system-info", "cli"]
 categories = ["command-line-utilities"]
+# Keep the published .crate lean: repo-only artwork, CI and Nix files add
+# nothing to a cargo build (assets/logos stays in: it is genlogos' source).
+exclude = ["/assets/cover.png", "/.github", "/flake.nix", "/flake.lock"]
 
 [[bin]]
 name = "purefetch"

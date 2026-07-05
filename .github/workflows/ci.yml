@@ -40,3 +40,20 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
+
+  # Prove the declared MSRV for real: build and test on the oldest supported
+  # toolchain (this also requires Cargo.lock to stay in the v3 format).
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.70"
+
+      - name: Check (MSRV 1.70)
+        run: cargo check --verbose
+
+      - name: Test (MSRV 1.70)
+        run: cargo test --verbose

@@ -22,6 +22,7 @@ fn humanize(mut s: u64) -> String {
     let hours = s / 3_600;
     s %= 3_600;
     let mins = s / 60;
+    let secs = s % 60;
 
     let mut parts = Vec::new();
     if days > 0 {
@@ -34,8 +35,8 @@ fn humanize(mut s: u64) -> String {
         parts.push(format!("{mins} min{}", plural(mins)));
     }
     if parts.is_empty() {
-        // Uptime under a minute.
-        parts.push(format!("{mins} min{}", plural(mins)));
+        // Uptime under a minute: show seconds.
+        parts.push(format!("{secs} sec{}", plural(secs)));
     }
     parts.join(", ")
 }
@@ -54,7 +55,8 @@ mod tests {
 
     #[test]
     fn humanize_pluralizes_and_composes() {
-        assert_eq!(humanize(59), "0 mins"); // under a minute
+        assert_eq!(humanize(59), "59 secs"); // under a minute
+        assert_eq!(humanize(1), "1 sec");
         assert_eq!(humanize(60), "1 min");
         assert_eq!(humanize(3600), "1 hour");
         assert_eq!(humanize(2 * 86_400), "2 days");

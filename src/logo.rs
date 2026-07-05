@@ -9,7 +9,8 @@ pub struct Logo {
     pub lines: &'static [&'static str],
     /// SGR params for the logo's colors. The art selects them with `$1`..`$9`
     /// markers (any text before the first marker uses the first color); resolved
-    /// in `main`. A literal `$` in the art is any `$` not followed by a digit.
+    /// in `main`. `$$` is one literal `$` (the fastfetch escape); any other `$`
+    /// not followed by a digit 1-9 is also literal.
     pub colors: &'static [&'static str],
 }
 

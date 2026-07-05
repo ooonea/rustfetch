@@ -7,7 +7,7 @@ use std::process::Command;
 pub fn read_trim(path: &str) -> Option<String> {
     std::fs::read_to_string(path)
         .ok()
-        .map(|s| s.trim_end_matches(['\n', '\r', ' ', '\t']).to_string())
+        .map(|s| s.trim_end().to_string())
         .filter(|s| !s.is_empty())
 }
 
