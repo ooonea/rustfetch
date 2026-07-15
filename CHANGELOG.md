@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-07-15
+
+### Fixed
+- Disk on an impermanence/tmpfs root: when `/` is a tmpfs (erase-your-darlings
+  setups) the whole-pool detection keyed on `/` being ZFS, so it fell back to
+  `statfs("/")` and reported the few-MiB RAM root instead of the pool. It now
+  also locates the pool via `/nix` (where the store lives), so the disk reads as
+  the real pool on tmpfs-root ZFS systems too.
+
 ## [0.1.11] - 2026-07-05
 
 ### Fixed

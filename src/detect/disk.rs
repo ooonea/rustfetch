@@ -1,7 +1,9 @@
 //! Disk: used / total (percent). On a normal filesystem this is statfs(2) on
 //! `/`. On a ZFS root, statfs only sees the root DATASET (a few GiB of the
 //! pool), so we report the whole pool instead — as `zpool list` does — labelled
-//! by the pool name.
+//! by the pool name. On an impermanence/tmpfs root (`/` is tmpfs) we locate the
+//! pool via `/nix` instead, so the disk still reads as the real pool, not the
+//! few-MiB RAM root.
 use crate::detect::{Row, Rows};
 use crate::util::{cmd, human_iec, percent};
 
@@ -42,18 +44,21 @@ fn zfs_pool_row() -> Option<Row> {
     ))
 }
 
-/// The pool backing `/` when it is ZFS: the first path component of the root
-/// dataset name in /proc/mounts (e.g. `zroot/ROOT/debian` -> `zroot`).
+/// The ZFS pool the system lives on: `/`'s pool on a ZFS-root box, or — when `/`
+/// is tmpfs (impermanence) — the pool backing `/nix`, where the store actually
+/// lives. Returns the first component of the dataset name (`zroot/nix` -> `zroot`).
 fn zfs_root_pool() -> Option<String> {
     let mounts = std::fs::read_to_string("/proc/mounts").ok()?;
-    for line in mounts.lines() {
-        let mut f = line.split_whitespace();
-        let dev = f.next()?;
-        let mnt = f.next()?;
-        let fstype = f.next()?;
-        if mnt == "/" && fstype == "zfs" {
-            return dev.split('/').next().map(str::to_string);
-        }
-    }
-    None
+    let pool_at = |want: &str| {
+        mounts.lines().find_map(|line| {
+            let mut f = line.split_whitespace();
+            let dev = f.next()?;
+            let mnt = f.next()?;
+            let fstype = f.next()?;
+            (mnt == want && fstype == "zfs")
+                .then(|| dev.split('/').next().unwrap_or(dev).to_string())
+        })
+    };
+    // Prefer the root's own pool; on a tmpfs/impermanence root fall back to /nix.
+    pool_at("/").or_else(|| pool_at("/nix"))
 }
