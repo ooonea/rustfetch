@@ -19,32 +19,24 @@ pub fn detect() -> Rows {
 
 /// Climb the parent chain from our own ppid; return the first known terminal.
 fn walk_parents() -> Option<&'static str> {
-    let mut pid = ppid_of("/proc/self/stat")?;
+    let mut pid = crate::sys::ppid_comm(std::process::id())?.0;
     // Guard against cycles / runaway with a hard cap; stop at init.
     for _ in 0..64 {
         if pid <= 1 {
             break;
         }
-        if let Some(comm) = crate::util::read_trim(&format!("/proc/{pid}/comm")) {
-            if let Some(canon) = canonical(&comm) {
-                return Some(canon);
-            }
+        let Some((next, comm)) = crate::sys::ppid_comm(pid) else {
+            break;
+        };
+        if let Some(canon) = canonical(&comm) {
+            return Some(canon);
         }
-        match ppid_of(&format!("/proc/{pid}/stat")) {
-            Some(next) if next != pid => pid = next,
-            _ => break,
+        if next == pid {
+            break;
         }
+        pid = next;
     }
     None
-}
-
-/// Parse the ppid from a `/proc/<pid>/stat` file. The comm field is enclosed in
-/// parentheses and may itself contain spaces or ')', so we split on the LAST
-/// ')': the remainder is "state ppid ...", where ppid is the 2nd whitespace field.
-fn ppid_of(stat_path: &str) -> Option<i64> {
-    let text = crate::util::read_trim(stat_path)?;
-    let rest = &text[text.rfind(')')? + 1..];
-    rest.split_whitespace().nth(1)?.parse::<i64>().ok()
 }
 
 /// Map a process `comm` (possibly truncated to 15 chars by the kernel) to a

@@ -176,7 +176,7 @@ fn main() {
         .or_else(|| std::env::var("LOGNAME").ok())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "user".into());
-    let host = util::read_trim("/proc/sys/kernel/hostname").unwrap_or_else(|| "localhost".into());
+    let host = sys::hostname().unwrap_or_else(|| "localhost".into());
     let title_plain = format!("{user}@{host}");
     let sep_len = title_plain.chars().count();
 

@@ -1,6 +1,6 @@
 //! Shell: parent shell + version like fastfetch, e.g. "zsh 5.9".
-//! Walks the process-parent chain from our own ppid up to the first ancestor
-//! whose `comm` is a known shell, then reads its `--version`.
+//! Walks the process-parent chain (via `sys::ppid_comm`) from our own ppid up
+//! to the first ancestor whose name is a known shell, then reads its `--version`.
 use crate::detect::{Row, Rows};
 
 /// Interactive/login shells we recognise as a "shell" ancestor.
@@ -20,20 +20,18 @@ pub fn detect() -> Rows {
     vec![Row::val(value)]
 }
 
-/// Climb the parent chain from our own ppid; return the `comm` of the first
+/// Climb the parent chain from our own ppid; return the name of the first
 /// ancestor that is a known shell. `None` if none is found before pid 1.
 fn find_shell_ancestor() -> Option<String> {
-    let mut pid = ppid_of("self")?;
+    let mut pid = crate::sys::ppid_comm(std::process::id())?.0;
     let mut guard = 0u32;
     while pid > 1 && guard < 64 {
-        // comm may carry a leading '-' for login shells, e.g. "-zsh".
-        if let Some(comm) = crate::util::read_trim(&format!("/proc/{pid}/comm")) {
-            let name = comm.strip_prefix('-').unwrap_or(&comm);
-            if SHELLS.contains(&name) {
-                return Some(name.to_string());
-            }
+        let (next, comm) = crate::sys::ppid_comm(pid)?;
+        // The name may carry a leading '-' for login shells, e.g. "-zsh".
+        let name = comm.strip_prefix('-').unwrap_or(&comm);
+        if SHELLS.contains(&name) {
+            return Some(name.to_string());
         }
-        let next = ppid_of(&pid.to_string())?;
         if next == pid {
             break; // cycle guard
         }
@@ -41,15 +39,6 @@ fn find_shell_ancestor() -> Option<String> {
         guard += 1;
     }
     None
-}
-
-/// Read the ppid field from `/proc/<who>/stat` (`who` = "self" or a pid string).
-/// The process name can contain spaces/parens, so split after the LAST ')':
-/// the remainder is "state ppid pgrp ..." — ppid is the 2nd field.
-fn ppid_of(who: &str) -> Option<u32> {
-    let stat = crate::util::read_trim(&format!("/proc/{who}/stat"))?;
-    let after = &stat[stat.rfind(')')? + 1..];
-    after.split_whitespace().nth(1)?.parse().ok()
 }
 
 /// Extract a version like "5.9" or "5.2.37" from `<shell> --version`.

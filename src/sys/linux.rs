@@ -1,4 +1,4 @@
-//! Minimal syscall shims — no libc, no external crates.
+//! Linux platform layer — minimal syscall shims, no libc, no external crates.
 //!
 //! The whole point of purefetch is to be written *entirely* in Rust, so instead
 //! of binding to C's `statvfs`/`ioctl` we issue the raw Linux syscalls directly
@@ -8,6 +8,8 @@
 //! On other architectures these fall back to conservative defaults so the crate
 //! still builds.
 #![allow(dead_code)]
+
+use super::DiskUsage;
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
@@ -139,12 +141,6 @@ struct Statfs {
     f_spare: [i64; 4],
 }
 
-pub struct DiskUsage {
-    pub total: u64,
-    pub used: u64,
-    pub avail: u64,
-}
-
 /// Disk usage of the filesystem containing `path`, via the `statfs(2)` syscall.
 pub fn disk_usage(path: &str) -> Option<DiskUsage> {
     let mut cpath = Vec::with_capacity(path.len() + 1);
@@ -219,4 +215,22 @@ pub fn stdout_is_tty() -> bool {
     // holds the kernel `struct termios`.
     let mut buf = [0u8; 64];
     unsafe { syscall3(SYS_IOCTL, 1, TCGETS, buf.as_mut_ptr() as usize) >= 0 }
+}
+
+/// The node name, for the `user@host` title.
+pub fn hostname() -> Option<String> {
+    crate::util::read_trim("/proc/sys/kernel/hostname")
+}
+
+/// Parent pid and short command name of `pid`, for the parent-chain walks in
+/// `detect::{shell,terminal}`. The ppid comes from `/proc/<pid>/stat`; the
+/// process name there can contain spaces/parens, so split after the LAST ')' —
+/// the remainder is "state ppid pgrp ...", ppid being the 2nd field. `comm` is
+/// empty when unreadable (the walk just skips it and keeps climbing).
+pub fn ppid_comm(pid: u32) -> Option<(u32, String)> {
+    let stat = crate::util::read_trim(&format!("/proc/{pid}/stat"))?;
+    let after = &stat[stat.rfind(')')? + 1..];
+    let ppid: u32 = after.split_whitespace().nth(1)?.parse().ok()?;
+    let comm = crate::util::read_trim(&format!("/proc/{pid}/comm")).unwrap_or_default();
+    Some((ppid, comm))
 }
