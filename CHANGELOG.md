@@ -6,6 +6,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-23
+
+### Added
+- **macOS support** (Apple Silicon and Intel). A new darwin platform layer
+  (`src/sys/darwin.rs`) binds `extern "C"` directly to libSystem — `statfs`
+  (`$INODE64` off arm64), `sysctlbyname`, mach `host_statistics64`, libproc's
+  `proc_pidinfo`, `gethostname`, `isatty`/`TIOCGWINSZ` — plus the CoreGraphics
+  active-display list. Raw syscalls are not a stable ABI on macOS, and std
+  already links libSystem there, so the zero-external-dependency rule holds.
+  Every detection module gained a `target_os = "macos"` path: OS from
+  SystemVersion.plist with the marketing-codename map ("macOS 26.4 (Tahoe)
+  arm64"), Kernel "Darwin x.y.z", CPU brand string (+ nominal max frequency
+  on Intel), Memory and Swap matching `vm_stat`/Activity Monitor, Disk on the
+  shared APFS container (used = total − available, as fastfetch reports it),
+  Host as the device tree's `product-name` over the `hw.model` board id (no
+  model table to age), GPU from the IOAccelerator registry (+ core count),
+  DE "Aqua" / WM "Quartz Compositor", Packages as brew/brew-cask/macports
+  directory counts, Battery via `pmset`, Terminal via
+  `$TERM_PROGRAM`(+`_VERSION`): Apple Terminal, iTerm2, Warp.
+- Apple logo, taken verbatim from fastfetch like the rest of the set:
+  `--logo macos` (aliases `apple`, `osx`, `mac`); `auto` always picks it on
+  macOS.
+- CI builds, tests, lints and **runs** purefetch on real macOS runners (arm64
+  and Intel), asserting the darwin output lines; the MSRV job compile-checks
+  `aarch64-apple-darwin` too.
+- Nix flake: `aarch64-darwin` and `x86_64-darwin` systems; `meta.platforms`
+  now includes darwin.
+
+### Changed
+- The platform layer moved from `src/sys.rs` to `src/sys/{mod,linux,darwin}.rs`;
+  `hostname()` and the parent-chain pid/name lookup used by Shell/Terminal
+  live there now. No behavior change on Linux.
+
 ## [0.1.12] - 2026-07-15
 
 ### Fixed
@@ -166,7 +199,9 @@ Initial release.
 - CLI: `--logo`, `--no-logo`, `--no-color`, `--version`, `--help`.
 - Dual-licensed MIT OR Apache-2.0.
 
-[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/ooonea/purefetch/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ooonea/purefetch/compare/v0.1.12...v0.2.0
+[0.1.12]: https://github.com/ooonea/purefetch/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/ooonea/purefetch/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/ooonea/purefetch/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/ooonea/purefetch/compare/v0.1.8...v0.1.9
