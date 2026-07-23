@@ -1,19 +1,32 @@
-//! Uptime: humanized from /proc/uptime, e.g. "6 days, 12 hours, 18 mins".
+//! Uptime: humanized, e.g. "6 days, 12 hours, 18 mins". Linux reads
+//! /proc/uptime; macOS derives it from the kern.boottime sysctl.
 use crate::detect::{Row, Rows};
 
 pub fn detect() -> Rows {
-    let Some(raw) = crate::util::read_trim("/proc/uptime") else {
-        return Vec::new();
-    };
-    let secs = raw
-        .split_whitespace()
-        .next()
-        .and_then(|s| s.parse::<f64>().ok())
-        .unwrap_or(0.0) as u64;
+    let secs = uptime_secs().unwrap_or(0);
     if secs == 0 {
         return Vec::new();
     }
     vec![Row::val(humanize(secs))]
+}
+
+#[cfg(target_os = "linux")]
+fn uptime_secs() -> Option<u64> {
+    let raw = crate::util::read_trim("/proc/uptime")?;
+    raw.split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<f64>().ok())
+        .map(|s| s as u64)
+}
+
+#[cfg(target_os = "macos")]
+fn uptime_secs() -> Option<u64> {
+    let boot = crate::sys::boottime_secs()?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    Some(now.saturating_sub(boot))
 }
 
 fn humanize(mut s: u64) -> String {

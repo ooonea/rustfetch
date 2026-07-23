@@ -85,9 +85,70 @@ pub fn percent(part: u64, total: u64) -> u64 {
     }
 }
 
+/// The raw value of the first `"key" = ...` property in an `ioreg` text dump.
+/// The lines carry tree decoration (`| `), so the needle is searched anywhere;
+/// the leading quote in it keeps longer key names from matching.
+/// macOS-only data source (IORegistry); the parsers are OS-neutral for tests.
+#[cfg(any(target_os = "macos", test))]
+pub fn ioreg_find(dump: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\" = ");
+    dump.lines().find_map(|l| {
+        l.find(&needle)
+            .map(|pos| l[pos + needle.len()..].to_string())
+    })
+}
+
+/// Decode one ioreg property value into a string. ioreg prints CFString as
+/// `"str"`, printable CFData as `<"str">`, and binary CFData as `<hexbytes>`
+/// (often a NUL-terminated ASCII string, e.g. the `model` of a GPU).
+#[cfg(any(target_os = "macos", test))]
+pub fn ioreg_decode(raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if let Some(inner) = raw
+        .strip_prefix("<\"")
+        .and_then(|r| r.strip_suffix("\">"))
+        .or_else(|| raw.strip_prefix('"').and_then(|r| r.strip_suffix('"')))
+    {
+        return non_empty(inner);
+    }
+    let hex = raw.strip_prefix('<').and_then(|r| r.strip_suffix('>'))?;
+    let hex: String = hex.chars().filter(|c| !c.is_whitespace()).collect();
+    if hex.is_empty() || hex.len() % 2 != 0 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0))
+        .collect();
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    non_empty(&String::from_utf8_lossy(&bytes[..end]))
+}
+
+/// A string ioreg property, found and decoded.
+#[cfg(any(target_os = "macos", test))]
+pub fn ioreg_string(dump: &str, key: &str) -> Option<String> {
+    ioreg_decode(&ioreg_find(dump, key)?)
+}
+
+/// An integer ioreg property (printed bare, e.g. `"gpu-core-count" = 8`).
+#[cfg(any(target_os = "macos", test))]
+pub fn ioreg_u64(dump: &str, key: &str) -> Option<u64> {
+    ioreg_find(dump, key)?.trim().parse().ok()
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn non_empty(s: &str) -> Option<String> {
+    let s = s.trim();
+    if s.is_empty() {
+        None
+    } else {
+        Some(s.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{human_iec, percent};
+    use super::{human_iec, ioreg_string, ioreg_u64, percent};
 
     #[test]
     fn iec_units_and_rounding() {
@@ -107,5 +168,32 @@ mod tests {
         assert_eq!(percent(1, 3), 33);
         assert_eq!(percent(2, 3), 67);
         assert_eq!(percent(3, 3), 100);
+    }
+
+    #[test]
+    fn ioreg_values_decode_all_three_shapes() {
+        let dump = "\
++-o AGXAcceleratorG13G  <class AGXAcceleratorG13G>
+    | \"model\" = <\"Apple M1\">
+    | \"gpu-core-count\" = 8
+    | \"board-id\" = <4d61636d696e69392c3100>
+    | \"IOClass\" = \"AGXAcceleratorG13G\"
+";
+        // Printable CFData: <"str">.
+        assert_eq!(ioreg_string(dump, "model").as_deref(), Some("Apple M1"));
+        // Hex CFData holding a NUL-terminated ASCII string.
+        assert_eq!(
+            ioreg_string(dump, "board-id").as_deref(),
+            Some("Macmini9,1")
+        );
+        // Plain CFString.
+        assert_eq!(
+            ioreg_string(dump, "IOClass").as_deref(),
+            Some("AGXAcceleratorG13G")
+        );
+        // Bare integer, and a missing key.
+        assert_eq!(ioreg_u64(dump, "gpu-core-count"), Some(8));
+        assert_eq!(ioreg_u64(dump, "model"), None);
+        assert_eq!(ioreg_string(dump, "absent"), None);
     }
 }

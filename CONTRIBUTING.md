@@ -5,11 +5,13 @@ Thanks for your interest! purefetch aims to stay small, fast, and
 
 ## Ground rules
 
-- **Zero dependencies.** No crates.io dependencies — the tool is `std` plus raw
-  Linux syscalls. A PR that adds a dependency will be asked to drop it.
-- **No panics, no blocking.** Detection modules read `/proc` and `/sys` and must
-  return an empty `Vec` when data is missing rather than `unwrap()`-ing or
-  spawning long-running work.
+- **Zero dependencies.** No crates.io dependencies — the tool is `std` plus the
+  platform layer in `src/sys/` (raw Linux syscalls; direct libSystem FFI on
+  macOS). A PR that adds a dependency will be asked to drop it.
+- **No panics, no blocking.** Detection modules read `/proc` and `/sys` on
+  Linux (sysctl & co. via `crate::sys` on macOS) and must return an empty
+  `Vec` when data is missing rather than `unwrap()`-ing or spawning
+  long-running work.
 - **MSRV is 1.70** — don't use newer `std` APIs (a dedicated CI job builds and
   tests on 1.70; `Cargo.lock` stays in the v3 format so pre-1.78 cargo can read it).
 - Run `cargo fmt` and `cargo clippy` before submitting; CI enforces both.
@@ -50,14 +52,22 @@ then register it (label + function) in the `groups` table in `src/main.rs`. Use
 `Row::val(...)` for a single value and return an empty `Vec` when unavailable.
 `src/detect/cpu.rs` is the canonical example.
 
-## Adding a CPU architecture
+## Adding a CPU architecture (Linux)
 
-`src/sys.rs` issues raw syscalls per architecture. To add one, provide a
+`src/sys/linux.rs` issues raw syscalls per architecture. To add one, provide a
 `syscall3` implementation (inline asm for that target's syscall convention) plus
 the `SYS_STATFS` / `SYS_IOCTL` numbers, all behind `#[cfg(target_arch = "...")]`.
 The `struct Statfs` layout is shared by LP64 targets; 32-bit targets would need
 their own (`statfs64`) layout. Verify with `cargo check --target <triple>` and,
 ideally, a run under `qemu-<arch>`.
+
+## Adding an OS
+
+One submodule in `src/sys/` implementing the API listed in `src/sys/mod.rs`,
+plus a `#[cfg(target_os = "...")] pub fn detect()` per detection module that
+differs. macOS (`src/sys/darwin.rs`) is the template: FFI structs mirror the
+OS's C headers and every helper degrades to `None`/empty instead of failing.
+Keep pure parsing helpers unconditional so the tests cover them on every host.
 
 ## Commit & PR style
 

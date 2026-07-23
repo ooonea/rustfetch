@@ -14,6 +14,7 @@ use crate::detect::{Row, Rows};
 /// Left = comm as it appears in /proc; right = pretty display name.
 /// The exact match deliberately avoids helper processes such as
 /// "mutter-x11-fram" (mutter-x11-frames) that merely share a prefix.
+#[cfg(target_os = "linux")]
 const KNOWN_WMS: &[(&str, &str)] = &[
     ("kwin_wayland", "KWin"),
     ("kwin_x11", "KWin"),
@@ -35,6 +36,15 @@ const KNOWN_WMS: &[(&str, &str)] = &[
     ("qtile", "qtile"),
 ];
 
+/// macOS: the compositor is always WindowServer, presented under its
+/// canonical name (fastfetch/neofetch convention). Tiling add-ons (yabai,
+/// AeroSpace, ...) still run on top of it, so this stays honest either way.
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    vec![Row::val("Quartz Compositor")]
+}
+
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let wm = match scan_processes() {
         Some(name) => name,
@@ -51,6 +61,7 @@ pub fn detect() -> Rows {
 }
 
 /// Return the pretty name of the first known standalone WM found running.
+#[cfg(target_os = "linux")]
 fn scan_processes() -> Option<&'static str> {
     let dir = std::fs::read_dir("/proc").ok()?;
     for entry in dir.flatten() {
@@ -75,6 +86,7 @@ fn scan_processes() -> Option<&'static str> {
 
 /// Map the current desktop environment to its default WM/compositor.
 /// $XDG_CURRENT_DESKTOP may be a colon-separated list (e.g. "ubuntu:GNOME").
+#[cfg(target_os = "linux")]
 fn de_to_wm() -> Option<&'static str> {
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok()?;
     for token in desktop.split(':') {
@@ -94,6 +106,7 @@ fn de_to_wm() -> Option<&'static str> {
 }
 
 /// Pretty session type from $XDG_SESSION_TYPE, or None if not X11/Wayland.
+#[cfg(target_os = "linux")]
 fn session_suffix() -> Option<&'static str> {
     match std::env::var("XDG_SESSION_TYPE")
         .ok()?

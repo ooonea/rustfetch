@@ -1,7 +1,9 @@
-//! Swap: used / total (percent). Skipped entirely if no swap is configured.
+//! Swap: used / total (percent). Skipped entirely if no swap is configured
+//! (macOS with no swap files yet reports a 0 total the same way).
 use crate::detect::{Row, Rows};
 use crate::util::{human_iec, percent};
 
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let Ok(info) = std::fs::read_to_string("/proc/meminfo") else {
         return Vec::new();
@@ -15,10 +17,21 @@ pub fn detect() -> Rows {
             free = parse_kb(v);
         }
     }
+    row(total.saturating_sub(free), total)
+}
+
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    let Some((total, used)) = crate::sys::swap_usage() else {
+        return Vec::new();
+    };
+    row(used, total)
+}
+
+fn row(used: u64, total: u64) -> Rows {
     if total == 0 {
         return Vec::new();
     }
-    let used = total.saturating_sub(free);
     vec![Row::val(format!(
         "{} / {} ({}%)",
         human_iec(used),
@@ -27,6 +40,7 @@ pub fn detect() -> Rows {
     ))]
 }
 
+#[cfg(target_os = "linux")]
 fn parse_kb(s: &str) -> u64 {
     s.split_whitespace()
         .next()

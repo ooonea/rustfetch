@@ -1,11 +1,15 @@
-//! GPU: graphics adapter model, e.g. "Quadro RTX 3000".
-//! Primary source: /proc/driver/nvidia/gpus/*/information ("Model:" line).
-//! lspci covers non-NVIDIA adapters: as the sole source when the nvidia proc
-//! is absent, and additionally for the other card on hybrid (iGPU + NVIDIA)
-//! systems — detected first via /sys so the common single-GPU run stays
-//! subprocess-free.
+//! GPU: graphics adapter model, e.g. "Quadro RTX 3000" or "Apple M1 (8)".
+//! Linux primary source: /proc/driver/nvidia/gpus/*/information ("Model:"
+//! line). lspci covers non-NVIDIA adapters: as the sole source when the
+//! nvidia proc is absent, and additionally for the other card on hybrid
+//! (iGPU + NVIDIA) systems — detected first via /sys so the common single-GPU
+//! run stays subprocess-free.
+//! macOS: the IOAccelerator registry entry via `ioreg` (model + core count),
+//! with the CPU brand string as fallback — on Apple Silicon the chip name IS
+//! the GPU name.
 use crate::detect::{Row, Rows};
 
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let mut rows = nvidia_gpus();
     if rows.is_empty() {
@@ -17,8 +21,28 @@ pub fn detect() -> Rows {
     rows
 }
 
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    if let Some(dump) = crate::util::cmd("ioreg", &["-rc", "IOAccelerator", "-w0"]) {
+        if let Some(model) = crate::util::ioreg_string(&dump, "model") {
+            let value = match crate::util::ioreg_u64(&dump, "gpu-core-count") {
+                Some(cores) if cores > 0 => format!("{model} ({cores})"),
+                _ => model,
+            };
+            return vec![Row::val(value)];
+        }
+    }
+    // No accelerator entry (e.g. a bare VM): on Apple Silicon the chip name
+    // still names the GPU honestly; otherwise report nothing.
+    match crate::sys::sysctl_string("machdep.cpu.brand_string") {
+        Some(chip) if chip.starts_with("Apple") => vec![Row::val(chip)],
+        _ => Vec::new(),
+    }
+}
+
 /// Whether /sys/class/drm has a card from a non-NVIDIA vendor (PCI vendor id
 /// != 0x10de), i.e. an adapter the NVIDIA proc interface cannot report.
+#[cfg(target_os = "linux")]
 fn has_non_nvidia_card() -> bool {
     let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
         return false;
@@ -40,6 +64,7 @@ fn has_non_nvidia_card() -> bool {
 }
 
 /// One Row per NVIDIA GPU, parsed from the driver's proc information file.
+#[cfg(target_os = "linux")]
 fn nvidia_gpus() -> Rows {
     let mut rows = Vec::new();
     let Ok(entries) = std::fs::read_dir("/proc/driver/nvidia/gpus") else {
@@ -69,6 +94,7 @@ fn nvidia_gpus() -> Rows {
 
 /// Parse `lspci` for graphics controllers; with `skip_nvidia`, NVIDIA cards
 /// are left out (already reported from the driver's proc interface).
+#[cfg(target_os = "linux")]
 fn lspci_gpus(skip_nvidia: bool) -> Rows {
     let Some(out) = crate::util::cmd("lspci", &[]) else {
         return Vec::new();
@@ -97,6 +123,7 @@ fn lspci_gpus(skip_nvidia: bool) -> Rows {
 }
 
 /// Strip a known vendor prefix and prefer a bracketed marketing name.
+#[cfg(any(target_os = "linux", test))]
 fn clean_lspci(desc: &str) -> String {
     let stripped = desc
         .strip_prefix("NVIDIA Corporation ")

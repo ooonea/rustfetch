@@ -14,9 +14,9 @@ pub struct Logo {
     pub colors: &'static [&'static str],
 }
 
-/// Resolve a logo selector ("auto", "debian", "none", ...) to a logo.
+/// Resolve a logo selector ("auto", "debian", "macos", "none", ...) to a logo.
 /// A known name wins; an unknown *explicit* name falls back to the detected
-/// distro (matching fastfetch), and finally to the generic Tux logo.
+/// OS (matching fastfetch), and finally to the generic Tux logo.
 pub fn get(selector: &str) -> Option<Logo> {
     let sel = selector.to_ascii_lowercase();
     if sel == "none" || sel == "off" {
@@ -34,6 +34,7 @@ pub fn get(selector: &str) -> Option<Logo> {
 }
 
 /// The `ID` from /etc/os-release, normalized to a known logo name.
+#[cfg(target_os = "linux")]
 fn detect_distro() -> String {
     let id = std::fs::read_to_string("/etc/os-release")
         .ok()
@@ -47,7 +48,14 @@ fn detect_distro() -> String {
     normalize(&id)
 }
 
+/// macOS is one OS: always the Apple logo.
+#[cfg(target_os = "macos")]
+fn detect_distro() -> String {
+    "macos".to_string()
+}
+
 /// Map os-release IDs to the logo names we ship.
+#[cfg(target_os = "linux")]
 fn normalize(id: &str) -> String {
     if id.starts_with("opensuse") {
         return "opensuse".to_string();
@@ -156,6 +164,10 @@ fn known(name: &str) -> Option<Logo> {
         "garuda" => Logo {
             lines: GARUDA,
             colors: &["31"],
+        },
+        "macos" | "apple" | "osx" | "mac" => Logo {
+            lines: MACOS,
+            colors: &["32", "33", "91", "31", "35", "34"],
         },
         "tux" | "linux" | "generic" => Logo {
             lines: TUX,
@@ -654,6 +666,26 @@ const GARUDA: &[&str] = &[
     "      dx88                   .t@x.",
     "        d:SS@8ba89aa67a853Sxxad.",
     "          .d988999889889899dd.",
+];
+
+const MACOS: &[&str] = &[
+    "                     ..'",
+    "                 ,xNMM.",
+    "               .OMMMMo",
+    "               lMM\"",
+    "     .;loddo:.  .olloddol;.",
+    "   cKMMMMMMMMMMNWMMMMMMMMMM0:",
+    " $2.KMMMMMMMMMMMMMMMMMMMMMMMWd.",
+    " XMMMMMMMMMMMMMMMMMMMMMMMX.",
+    "$3;MMMMMMMMMMMMMMMMMMMMMMMM:",
+    ":MMMMMMMMMMMMMMMMMMMMMMMM:",
+    "$4.MMMMMMMMMMMMMMMMMMMMMMMMX.",
+    " kMMMMMMMMMMMMMMMMMMMMMMMMWd.",
+    " $5'XMMMMMMMMMMMMMMMMMMMMMMMMMMk",
+    "  'XMMMMMMMMMMMMMMMMMMMMMMMMK.",
+    "    $6kMMMMMMMMMMMMMMMMMMMMMMd",
+    "     ;KMMMMMMMWXXWMMMMMMMk.",
+    "       \"cooc*\"    \"*coo'\"",
 ];
 
 const TUX: &[&str] = &[

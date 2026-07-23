@@ -8,10 +8,12 @@
   outputs =
     { self, nixpkgs }:
     let
-      # purefetch is Linux-only (raw /proc, /sys and Linux syscalls).
+      # Linux via raw syscalls + /proc + /sys; macOS via libSystem FFI.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
       ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
@@ -31,7 +33,7 @@
                 asl20
               ];
               mainProgram = "purefetch";
-              platforms = pkgs.lib.platforms.linux;
+              platforms = pkgs.lib.platforms.linux ++ pkgs.lib.platforms.darwin;
             };
           };
           default = purefetch;

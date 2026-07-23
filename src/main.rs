@@ -461,7 +461,9 @@ fn print_help() {
     println!("$PUREFETCH_CONFIG, ~/.config/purefetch/config, or /etc/purefetch/config.");
     println!();
     println!("OPTIONS:");
-    println!("    -l, --logo <NAME>       logo: auto (default), a distro name, tux, or none");
+    println!(
+        "    -l, --logo <NAME>       logo: auto (default), a distro name, macos, tux, or none"
+    );
     println!("        --logo-file <PATH>  use a custom logo, read verbatim from a file");
     println!("        --logo-exec <CMD>   use a custom logo from a command's output (dynamic)");
     println!("        --modules <LIST>    comma-separated modules to show ('-' = separator),");

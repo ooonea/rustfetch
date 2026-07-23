@@ -1,7 +1,18 @@
 //! Display: connected outputs and resolutions, e.g. "1920x1080 (eDP-1)".
-//! Sourced from /sys/class/drm/cardN-<connector>/{status,modes}.
+//! Linux: /sys/class/drm/cardN-<connector>/{status,modes}. macOS: the
+//! CoreGraphics active-display list (native pixels; no connector names, so
+//! the rows are bare "2560x1440"). Headless sessions show nothing on both.
 use crate::detect::{Row, Rows};
 
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    crate::sys::displays()
+        .into_iter()
+        .map(|(w, h)| Row::val(format!("{w}x{h}")))
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
         return Vec::new();
@@ -43,6 +54,7 @@ pub fn detect() -> Rows {
 
 /// Strip a leading "cardN-" from a DRM node name: "card0-eDP-1" -> Some("eDP-1").
 /// Returns None if the name is not a per-connector node (e.g. "card0", "renderD128").
+#[cfg(any(target_os = "linux", test))]
 fn strip_card_prefix(dir: &str) -> Option<&str> {
     let rest = dir.strip_prefix("card")?;
     // Consume the card index digits.

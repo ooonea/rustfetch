@@ -41,6 +41,7 @@ const ORDER: &[(&str, &[&str])] = &[
     ("devuan", &["devuan"]),
     ("mx", &["mx"]),
     ("garuda", &["garuda"]),
+    ("macos", &["macos", "apple", "osx", "mac"]),
     ("tux", &["tux", "linux", "generic"]),
 ];
 
@@ -167,9 +168,9 @@ pub struct Logo {
     pub colors: &'static [&'static str],
 }
 
-/// Resolve a logo selector ("auto", "debian", "none", ...) to a logo.
+/// Resolve a logo selector ("auto", "debian", "macos", "none", ...) to a logo.
 /// A known name wins; an unknown *explicit* name falls back to the detected
-/// distro (matching fastfetch), and finally to the generic Tux logo.
+/// OS (matching fastfetch), and finally to the generic Tux logo.
 pub fn get(selector: &str) -> Option<Logo> {
     let sel = selector.to_ascii_lowercase();
     if sel == "none" || sel == "off" {
@@ -184,6 +185,7 @@ pub fn get(selector: &str) -> Option<Logo> {
 }
 
 /// The `ID` from /etc/os-release, normalized to a known logo name.
+#[cfg(target_os = "linux")]
 fn detect_distro() -> String {
     let id = std::fs::read_to_string("/etc/os-release")
         .ok()
@@ -197,7 +199,14 @@ fn detect_distro() -> String {
     normalize(&id)
 }
 
+/// macOS is one OS: always the Apple logo.
+#[cfg(target_os = "macos")]
+fn detect_distro() -> String {
+    "macos".to_string()
+}
+
 /// Map os-release IDs to the logo names we ship.
+#[cfg(target_os = "linux")]
 fn normalize(id: &str) -> String {
     if id.starts_with("opensuse") {
         return "opensuse".to_string();

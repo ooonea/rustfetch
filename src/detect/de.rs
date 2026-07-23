@@ -3,8 +3,16 @@
 //! normalized), falling back to $XDG_SESSION_DESKTOP then $DESKTOP_SESSION.
 //! Version comes from the DE's own tool (gnome-shell/plasmashell); if unknown
 //! only the name is shown. Empty Vec on a tty / pure WM (no DE hints).
+//! macOS: always "Aqua" — the desktop is fixed (neofetch's convention; recent
+//! fastfetch files the design language under Theme instead).
 use crate::detect::{Row, Rows};
 
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    vec![Row::val("Aqua")]
+}
+
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let raw = desktop_hint();
     let Some(raw) = raw else {
@@ -24,6 +32,7 @@ pub fn detect() -> Rows {
 }
 
 /// First of the desktop env vars that is set and non-empty.
+#[cfg(target_os = "linux")]
 fn desktop_hint() -> Option<String> {
     for key in [
         "XDG_CURRENT_DESKTOP",
@@ -42,6 +51,7 @@ fn desktop_hint() -> Option<String> {
 
 /// Map a raw desktop token to a canonical display name; unknown tokens pass
 /// through unchanged.
+#[cfg(any(target_os = "linux", test))]
 fn normalize(token: &str) -> String {
     let lower = token.to_ascii_lowercase();
     let name = if lower.contains("gnome") {
@@ -75,6 +85,7 @@ fn normalize(token: &str) -> String {
 }
 
 /// DE version string, or None if it cannot be determined.
+#[cfg(target_os = "linux")]
 fn version_for(name: &str) -> Option<String> {
     match name {
         "GNOME" => {
@@ -103,6 +114,7 @@ fn version_for(name: &str) -> Option<String> {
 
 /// First whitespace-separated token that begins with a digit,
 /// e.g. "GNOME Shell 48.7" -> "48.7".
+#[cfg(any(target_os = "linux", test))]
 fn first_num_token(s: &str) -> Option<String> {
     s.split_whitespace()
         .find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit()))

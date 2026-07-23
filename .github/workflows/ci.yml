@@ -41,6 +41,45 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
+  # Real macOS runs on both architectures: build, test, then execute the
+  # binary and assert the darwin detection paths actually produce output.
+  # macos-latest = arm64 (Apple Silicon); macos-26-intel = x86_64.
+  macos:
+    strategy:
+      matrix:
+        runner: [macos-latest, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Build (release)
+        run: cargo build --release --verbose
+
+      - name: Test
+        run: cargo test --verbose
+
+      # The ubuntu job never compiles the darwin cfg paths; lint them here.
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run and check output
+        run: |
+          ./target/release/purefetch --no-config
+          ./target/release/purefetch --no-config --no-color --logo none | tee out.txt
+          grep -E "^OS +macOS" out.txt
+          grep -E "^Kernel +Darwin " out.txt
+          grep -E "^Memory +[0-9.]+ [GM]iB / [0-9.]+ GiB" out.txt
+          grep -E "^Disk \(/\) +[0-9.]+ [GT]iB / [0-9.]+ [GT]iB" out.txt
+          grep -E "^Uptime +" out.txt
+          grep -E "^DE +Aqua" out.txt
+          grep -E "^WM +Quartz Compositor" out.txt
+          grep -E "^Shell +" out.txt
+          grep -E "^CPU +" out.txt
+
   # Prove the declared MSRV for real: build and test on the oldest supported
   # toolchain (this also requires Cargo.lock to stay in the v3 format).
   msrv:

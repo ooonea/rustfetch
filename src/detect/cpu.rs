@@ -1,11 +1,12 @@
 //! CPU: cleaned model name @ max frequency,
-//! e.g. "Intel(R) Core(TM) i7-9850H @ 4.60 GHz".
+//! e.g. "Intel(R) Core(TM) i7-9850H @ 4.60 GHz" or "Apple M1".
 //!
 //! Architectures label the CPU differently in /proc/cpuinfo: x86 and most ARM
 //! use "model name"; riscv uses "uarch" or the "isa" string; ppc uses "cpu";
 //! some ARM SoCs use "Hardware". We take the first present, in that order.
 use crate::detect::{Row, Rows};
 
+#[cfg(target_os = "linux")]
 pub fn detect() -> Rows {
     let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") else {
         return Vec::new();
@@ -22,7 +23,24 @@ pub fn detect() -> Rows {
     vec![Row::val(value)]
 }
 
+/// macOS: the brand string covers both worlds ("Apple M1", "Intel(R) Core(TM)
+/// i7-..."). The nominal max frequency only exists as a sysctl on Intel;
+/// Apple Silicon does not publish one, so the name stands alone there.
+#[cfg(target_os = "macos")]
+pub fn detect() -> Rows {
+    let Some(model) = crate::sys::sysctl_string("machdep.cpu.brand_string") else {
+        return Vec::new();
+    };
+    let name = clean_model(&model);
+    let value = match crate::sys::sysctl_u64("hw.cpufrequency_max") {
+        Some(hz) if hz > 0 => format!("{name} @ {:.2} GHz", hz as f64 / 1e9),
+        _ => name,
+    };
+    vec![Row::val(value)]
+}
+
 /// The CPU name from /proc/cpuinfo, trying each key in preference order.
+#[cfg(any(target_os = "linux", test))]
 fn model_name(cpuinfo: &str) -> Option<String> {
     const KEYS: [&str; 6] = ["model name", "Hardware", "cpu model", "cpu", "uarch", "isa"];
     for key in KEYS {
@@ -48,6 +66,7 @@ fn clean_model(s: &str) -> String {
     base.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+#[cfg(target_os = "linux")]
 fn max_freq_ghz() -> Option<f64> {
     crate::util::read_trim("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
         .and_then(|s| s.parse::<f64>().ok())

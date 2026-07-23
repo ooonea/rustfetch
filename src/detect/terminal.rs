@@ -10,7 +10,7 @@ pub fn detect() -> Rows {
         Some(t) => t,
         None => return Vec::new(),
     };
-    let value = match version_of(term) {
+    let value = match version_of(term).or_else(|| env_version(term)) {
         Some(v) => format!("{term} {v}"),
         None => term.to_string(),
     };
@@ -62,6 +62,10 @@ fn canonical(comm: &str) -> Option<&'static str> {
         ("ghostty", "ghostty"),
         ("tmux", "tmux"),
         ("screen", "screen"),
+        // macOS GUI terminals, as libproc reports their process names.
+        ("Terminal", "Apple Terminal"),
+        ("iTerm2", "iTerm2"),
+        ("WarpTerminal", "Warp"),
     ];
     for (name, display) in TERMS {
         if comm == *name {
@@ -151,6 +155,11 @@ fn from_token(tp: &str) -> Option<&'static str> {
         "wezterm" => Some("wezterm"),
         "tmux" => Some("tmux"),
         "konsole" => Some("konsole"),
+        // macOS conventions: Terminal.app and iTerm2 identify themselves only
+        // through this variable.
+        "apple_terminal" => Some("Apple Terminal"),
+        "iterm.app" => Some("iTerm2"),
+        "warpterminal" => Some("Warp"),
         _ if t.contains("foot") => Some("foot"),
         _ => None,
     }
@@ -180,6 +189,20 @@ fn version_of(term: &str) -> Option<String> {
     }
     let out = crate::util::cmd(term, &["--version"])?;
     out.lines().next().and_then(version_token)
+}
+
+/// $TERM_PROGRAM_VERSION, for terminals with no --version binary (Apple
+/// Terminal, iTerm2, ...) — only when $TERM_PROGRAM names the same terminal
+/// we detected, so a nested tmux doesn't inherit the outer app's version.
+fn env_version(term: &str) -> Option<String> {
+    let tp = std::env::var("TERM_PROGRAM").ok()?;
+    if from_token(&tp)? != term {
+        return None;
+    }
+    std::env::var("TERM_PROGRAM_VERSION")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
 }
 
 /// Pick the first whitespace token that looks like a version number,
